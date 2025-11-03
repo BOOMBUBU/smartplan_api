@@ -6,3 +6,6 @@ node_modules/
 
 # file excle
 *.xlsx
+
+# lock files
+package-lock.json
