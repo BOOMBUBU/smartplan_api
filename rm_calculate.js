@@ -79,7 +79,7 @@ export async function raw_mat_calculate(plant) {
                         stock_item.used += item_used;
                         lst_rm.push({
                             mat_code: job.code,
-                            item_id: bom.item_id,
+                            bom_id: bom.item_id,
                             request: item_req,
                             used: item_used,
                             available_qty: available_qty,
@@ -102,38 +102,38 @@ export async function raw_mat_calculate(plant) {
     lst_active_plan = lst_active_plan.filter(r=>r.start >=min_date_stock)
     console.log("lst_active_plan",min_date_stock.format("YYYY-MM-DD"), lst_active_plan.length)
 
-    const data_row = lst_active_plan.flatMap(r => {
-        const raws = Array.isArray(r.raw_materials) ? r.raw_materials : [];
-        return raws.map(rm => ({
-            job_id: r._id,
-            plant: r.plant,
-            machine: r.machine,
-            mat_code: r.code,
-            priority: r.commit,
-            job_start: moment(r.start).format("YYYY-MM-DD HH:mm"), // เวลาเริ่มของงาน
-            job_end: moment(r.end).format("YYYY-MM-DD HH:mm"),
-            pcs: r.pcs,
-            item_id: rm.item_id,
-            available_qty: rm.available_qty,
-            used: rm.used,
-            request: rm.request,
-            suggest_pcs: rm.suggest_pcs,
-            rm_job_start: rm.job_start ? moment(rm.job_start).format("YYYY-MM-DD HH:mm") : null, // เปลี่ยนชื่อคีย์กันชนกัน
-        }));
-    });
+    // const data_row = lst_active_plan.flatMap(r => {
+    //     const raws = Array.isArray(r.raw_materials) ? r.raw_materials : [];
+    //     return raws.map(rm => ({
+    //         job_id: r._id,
+    //         plant: r.plant,
+    //         machine: r.machine,
+    //         mat_code: r.code,
+    //         priority: r.commit,
+    //         job_start: moment(r.start).format("YYYY-MM-DD HH:mm"), // เวลาเริ่มของงาน
+    //         job_end: moment(r.end).format("YYYY-MM-DD HH:mm"),
+    //         pcs: r.pcs,
+    //         item_id: rm.item_id,
+    //         available_qty: rm.available_qty,
+    //         used: rm.used,
+    //         request: rm.request,
+    //         suggest_pcs: rm.suggest_pcs,
+    //         rm_job_start: rm.job_start ? moment(rm.job_start).format("YYYY-MM-DD HH:mm") : null, // เปลี่ยนชื่อคีย์กันชนกัน
+    //     }));
+    // });
 
-    // console.table(stock_used_log);
-    // 1) แปลงเป็น worksheet
-    const ws_log = XLSX.utils.json_to_sheet(stock_used_log);
-    const ws_data = XLSX.utils.json_to_sheet(data_row);
+    // // console.table(stock_used_log);
+    // // 1) แปลงเป็น worksheet
+    // const ws_log = XLSX.utils.json_to_sheet(stock_used_log);
+    // const ws_data = XLSX.utils.json_to_sheet(data_row);
 
-    // // 2) สร้าง workbook แล้วใส่ชีต
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws_data, "data");
-    XLSX.utils.book_append_sheet(wb, ws_log, "stock_used_log");
+    // // // 2) สร้าง workbook แล้วใส่ชีต
+    // const wb = XLSX.utils.book_new();
+    // XLSX.utils.book_append_sheet(wb, ws_data, "data");
+    // XLSX.utils.book_append_sheet(wb, ws_log, "stock_used_log");
 
-    // // 3) เขียนไฟล์ .xlsx
-    XLSX.writeFile(wb, "./data.xlsx");
+    // // // 3) เขียนไฟล์ .xlsx
+    // XLSX.writeFile(wb, "./data.xlsx");
 
     return lst_active_plan
 }
