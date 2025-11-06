@@ -50,9 +50,9 @@ export async function master_mrp_bom(plant) {
 export async function master_mrp_stock(plant) {
     const payload = {
         table: "masterMRPStock",
-        search: {
-            plant: plant,
-        },
+        // search: {
+        //     plant: plant,
+        // },
     };
 
     const res = await axios.post(
