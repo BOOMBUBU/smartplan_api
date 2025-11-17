@@ -26,45 +26,55 @@ export async function active_plan(plant) {
 };
 
 export async function master_mrp_bom(plant) {
-    const payload = {
-        table: "masterMRPBOM",
-        search: {
-            StockPlant: plant,
-        },
-    };
-
-    const res = await axios.post(
-        URL_MASTER,
-        payload,
-        {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
+    try {
+        const payload = {
+            table: "masterMRPBOM",
+            search: {
+                StockPlant: plant,
             },
-        }
-    );
+        };
 
-    return res.data;
+        const res = await axios.post(
+            URL_MASTER,
+            payload,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
+
+        return res.data;
+    } catch (error) {
+        return [];
+    }
+
 };
 
 export async function master_mrp_stock(plant) {
-    const payload = {
-        table: "masterMRPStock",
-        // search: {
-        //     plant: plant,
-        // },
-    };
+    try {
+        const payload = {
+            table: "masterMRPStock",
+            // search: {
+            //     plant: plant,
+            // },
+        };
 
-    const res = await axios.post(
-        URL_MASTER,
-        payload,
-        {
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-        }
-    );
+        const res = await axios.post(
+            URL_MASTER,
+            payload,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
 
-    return res.data;
+        return res.data;
+    } catch (error) {
+        return [];
+    }
+
 };
