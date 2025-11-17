@@ -5,24 +5,20 @@ import fs from 'fs';
 import * as XLSX from "xlsx";
 
 export async function raw_mat_calculate(plant) {
-    let lst_active_plan = await active_plan(plant);
-    // let path = `/Users/kessarabhornchuysud/Downloads/activePlan.json`
-    // let raw = fs.readFileSync(path)
-    // let lst_active_plan = JSON.parse(raw);
-    // console.log(lst_active_plan.length)
+    let lst_active_plan = await active_plan(plant) ?? [];
+    let lst_master_mrp_bom = await master_mrp_bom(plant) ?? [];
+    let lst_master_mrp_stock = await master_mrp_stock(plant) ?? [];
     lst_active_plan.forEach(e => {
         e.start = moment(e.start, "YYYY-MM-DD HH:mm");
         e.end = moment(e.end, "YYYY-MM-DD HH:mm");
         e['raw_materials'] = []
     });
-    let lst_master_mrp_bom = await master_mrp_bom(plant);
     lst_master_mrp_bom = lst_master_mrp_bom.filter(
         (row) => String(row?.ItemDescription ?? "")
             .trim()
             .toUpperCase() != "WATER"
     );
     let ap = lst_active_plan.filter(r => ['CM1', 'CM2'].includes(r.machine) && r.type === "งานผลิต");
-    let lst_master_mrp_stock = await master_mrp_stock(plant);
     let min_date_stock = moment.min(lst_master_mrp_stock.map(r => moment(r['Download Date'])));
     let machines = [...new Set(ap.map(row => row.machine))];
     let ms_bom_mrp = [...new Set(lst_master_mrp_bom.map(row => row.Material))].map(m => {
@@ -52,8 +48,6 @@ export async function raw_mat_calculate(plant) {
             bom: bom
         }
     });
-
-    // console.dir(ms_bom_mrp, { depth: null });
     let stock_used_log = []
     let mrp_stock = lst_master_mrp_stock.map(stock => {
         return {
