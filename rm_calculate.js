@@ -57,7 +57,7 @@ export async function raw_mat_calculate(plant) {
             unit: stock['Base Unit Of Measure'],
             group: stock['RawmatGroup'],
             used: 0,
-            plant: stock['plant'],
+            plant: stock['Plant'],
 
         }
     });
@@ -74,10 +74,22 @@ export async function raw_mat_calculate(plant) {
                 if (bom_item) {
                     bom_item.bom.forEach(bom => {
                         let item_weight = bom.qty * qty_required;
-                        const stock_item = mrp_stock.find(s => s.item_id === bom.item_id && s.plant === bom.buyer_plant);
+                        let stock_item = mrp_stock.find(s => s.item_id === bom.item_id && s.plant === bom.buyer_plant);
+
                         let available_qty = 0;
                         if (stock_item) {
                             available_qty = stock_item.total - stock_item.used;
+                        } else {
+                            stock_item = {
+                                stock_date: min_date_stock,
+                                unit: 'KG',
+                                group: null,
+                                item_id: bom.item_id,
+                                plant: bom.buyer_plant,
+                                total: 0,
+                                used: 0
+                            }
+                            mrp_stock.push(stock_item)
                         }
                         // Determine how much can be allocated
                         let item_req = 0;
@@ -111,11 +123,11 @@ export async function raw_mat_calculate(plant) {
                 let suggest_pcs = nums.length ? Math.min(...nums) : 0; // ถ้าว่างให้เป็น 0
                 suggest_pcs = Math.abs(suggest_pcs) < 1e-10 ? 0 : Number(suggest_pcs.toFixed(10));
                 lst_rm.forEach(r => r.suggest_pcs = suggest_pcs);
-                let item = lst_active_plan.find(f=>f._id == job._id)
-                if (item){
+                let item = lst_active_plan.find(f => f._id == job._id)
+                if (item) {
                     item.raw_materials = lst_rm;
                 }
-                
+
                 stock_used_log = stock_used_log.concat(lst_rm);
             })
         }
@@ -157,5 +169,8 @@ export async function raw_mat_calculate(plant) {
 
     // console.dir(lst_active_plan, { depth: null })
     // console.log(lst_active_plan.length)
+    // for (const element of lst_active_plan) {
+    //     if (element.raw_materials.length > 0) console.log(element.code,element.plant,element.machine,element.raw_materials.length)
+    // }
     return lst_active_plan
 }
