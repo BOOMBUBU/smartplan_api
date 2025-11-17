@@ -111,7 +111,7 @@ export async function raw_mat_calculate(plant) {
                 let suggest_pcs = nums.length ? Math.min(...nums) : 0; // ถ้าว่างให้เป็น 0
                 suggest_pcs = Math.abs(suggest_pcs) < 1e-10 ? 0 : Number(suggest_pcs.toFixed(10));
                 lst_rm.forEach(r => r.suggest_pcs = suggest_pcs);
-                let item = lst_active_plan.find(f=>f.ItemID == job.ItemID)
+                let item = lst_active_plan.find(f=>f._id == job._id)
                 if (item){
                     item.raw_materials = lst_rm;
                 }
