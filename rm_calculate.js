@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 
 export async function raw_mat_calculate(plant) {
     let lst_active_plan = await active_plan(plant) ?? [];
-    lst_active_plan = lst_active_plan.filter(f => f.code == 'ZCA66100102005')
+    // lst_active_plan = lst_active_plan.filter(f => f.code == 'ZCA66100102005')
     // let path = `/Users/kessarabhornchuysud/Downloads/activePlan.json`
     // let raw = fs.readFileSync(path)
     // let lst_active_plan = JSON.parse(raw);
@@ -182,10 +182,10 @@ export async function raw_mat_calculate(plant) {
 
     // console.dir(lst_active_plan, { depth: null })
     // console.log(lst_active_plan.length)
-    // for (const element of lst_active_plan) {
+    // for (const element of lst_active_plan.filter(f=>f.code =='ZCA66100102005')) {
     //     if (['CM1', 'CM2'].includes(element.machine) & element.pcs > 0) {
-    //         console.log("non require",element.code, element.plant, element.machine, moment(element.start).format('YYYY-MM-DD HH:mm:ss'), element.raw_materials.length)
-    //             console.dir(element.raw_materials)
+    //         console.log(element.code, element.plant, element.machine, moment(element.start).format('YYYY-MM-DD HH:mm:ss'), element.raw_materials.length)
+    //         console.dir(element.raw_materials)
     //         // if (element.raw_materials.filter(f => f.request > 0).length) {
     //         //     console.log(element.code, element.plant, element.machine, moment(element.start).format('YYYY-MM-DD HH:mm:ss'), element.raw_materials.length)
     //         //     console.dir(element.raw_materials)
