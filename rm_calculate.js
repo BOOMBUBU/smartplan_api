@@ -5,16 +5,17 @@ import fs from 'fs';
 import * as XLSX from "xlsx";
 
 export async function raw_mat_calculate(plant) {
-    // let lst_active_plan = await active_plan(plant) ?? [];
-    let path = `/Users/kessarabhornchuysud/Downloads/activePlan.json`
-    let raw = fs.readFileSync(path)
-    let lst_active_plan = JSON.parse(raw);
+    let lst_active_plan = await active_plan(plant) ?? [];
+    lst_active_plan = lst_active_plan.filter(f => f.code == 'ZCA66100102005')
+    // let path = `/Users/kessarabhornchuysud/Downloads/activePlan.json`
+    // let raw = fs.readFileSync(path)
+    // let lst_active_plan = JSON.parse(raw);
     // console.log(lst_active_plan.length)
     let lst_master_mrp_bom = await master_mrp_bom(plant) ?? [];
     let lst_master_mrp_stock = await master_mrp_stock(plant) ?? [];
     lst_active_plan.forEach(e => {
-        e.start = new Date(e.start);
-        e.end = new Date(e.end);
+        e.start = moment(e.start);
+        e.end = moment(e.end);
         // e.start = moment(e.start, "YYYY-MM-DD HH:mm");
         // e.end = moment(e.end, "YYYY-MM-DD HH:mm");
         e['raw_materials'] = []
@@ -27,7 +28,7 @@ export async function raw_mat_calculate(plant) {
     let ap = lst_active_plan.filter(r => ['CM1', 'CM2'].includes(r.machine) && r.type === "งานผลิต");
     let min_date_stock = moment.min(lst_master_mrp_stock.map(r => moment(r['Download Date'])));
     let min_date_ap = moment.min(lst_active_plan.map(r => moment(r['start'])));
-    // console.log(min_date_stock.format("YYYY-MM-DD HH:mm:ss"),min_date_ap.format("YYYY-MM-DD HH:mm:ss"))
+    console.log(min_date_stock.format("YYYY-MM-DD HH:mm:ss"), min_date_ap.format("YYYY-MM-DD HH:mm:ss"))
     let machines = [...new Set(ap.map(row => row.machine))];
     let ms_bom_mrp = [...new Set(lst_master_mrp_bom.map(row => row.Material))].map(m => {
         let lst_bom = lst_master_mrp_bom.filter(r => r.Material === m && parseFloat(r.Qty) > 0)
@@ -65,25 +66,29 @@ export async function raw_mat_calculate(plant) {
             unit: stock['Base Unit Of Measure'],
             group: stock['RawmatGroup'],
             used: 0,
-            plant: stock['Plant'],
+            plant: stock['Plant'] ?? stock['plant'],
 
         }
     });
+    // console.table(mrp_stock)
+    // console.dir(ms_bom_mrp, { depth: null })
     ap = ap.filter(f => f.start >= min_date_stock);
     ap = ap.sort((a, b) => a.start.valueOf() - b.start.valueOf());
     if (ap.length > 0) {
         for (const mc of machines) {
             let data = ap.filter(row => row.machine === mc);
+            // console.log("data",data)
             data = data.sort((a, b) => a.start.valueOf() - b.start.valueOf());
             data.forEach(job => {
                 let qty_required = parseFloat(job.pcs);
                 const bom_item = ms_bom_mrp.find(b => b.mat_code === job.code);
+                // console.table(bom_item.bom)
                 let lst_rm = []
                 if (bom_item) {
                     bom_item.bom.forEach(bom => {
                         let item_weight = bom.qty * qty_required;
                         let stock_item = mrp_stock.find(s => s.item_id === bom.item_id && s.plant === bom.buyer_plant);
-
+                        // console.log(stock_item)
                         let available_qty = 0;
                         if (stock_item) {
                             available_qty = stock_item.total - stock_item.used;
@@ -178,7 +183,17 @@ export async function raw_mat_calculate(plant) {
     // console.dir(lst_active_plan, { depth: null })
     // console.log(lst_active_plan.length)
     // for (const element of lst_active_plan) {
-    //     if (element.raw_materials.length > 0) console.log(element.code,element.plant,element.machine,element.raw_materials.length)
+    //     if (['CM1', 'CM2'].includes(element.machine) & element.pcs > 0) {
+    //         console.log("non require",element.code, element.plant, element.machine, moment(element.start).format('YYYY-MM-DD HH:mm:ss'), element.raw_materials.length)
+    //             console.dir(element.raw_materials)
+    //         // if (element.raw_materials.filter(f => f.request > 0).length) {
+    //         //     console.log(element.code, element.plant, element.machine, moment(element.start).format('YYYY-MM-DD HH:mm:ss'), element.raw_materials.length)
+    //         //     console.dir(element.raw_materials)
+    //         // } else {
+    //         //     console.log("non require",element.code, element.plant, element.machine, moment(element.start).format('YYYY-MM-DD HH:mm:ss'), element.raw_materials.length)
+    //         //     console.dir(element.raw_materials)
+    //         // }
+    //     }
     // }
     return lst_active_plan
 }
