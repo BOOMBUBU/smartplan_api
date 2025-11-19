@@ -6,7 +6,7 @@ import * as XLSX from "xlsx";
 
 export async function raw_mat_calculate(plant) {
     let lst_active_plan = await active_plan(plant) ?? [];
-    // lst_active_plan = lst_active_plan.filter(f => f.code == 'ZCA66100102005')
+    // lst_active_plan = lst_active_plan.filter(f => f.code == 'ZCA65110164001')
     // let path = `/Users/kessarabhornchuysud/Downloads/activePlan.json`
     // let raw = fs.readFileSync(path)
     // let lst_active_plan = JSON.parse(raw);
@@ -41,6 +41,7 @@ export async function raw_mat_calculate(plant) {
             )
         ];
         let select = lst_bom.filter(f => !exclude.includes(f.ItemID))
+        // console.table(select)
         let bom = select.map(i => {
             let obj = {
                 item_id: i.ItemID,
@@ -70,8 +71,6 @@ export async function raw_mat_calculate(plant) {
 
         }
     });
-    // console.table(mrp_stock)
-    // console.dir(ms_bom_mrp, { depth: null })
     ap = ap.filter(f => f.start >= min_date_stock);
     ap = ap.sort((a, b) => a.start.valueOf() - b.start.valueOf());
     if (ap.length > 0) {
@@ -82,13 +81,13 @@ export async function raw_mat_calculate(plant) {
             data.forEach(job => {
                 let qty_required = parseFloat(job.pcs);
                 const bom_item = ms_bom_mrp.find(b => b.mat_code === job.code);
-                // console.table(bom_item.bom)
+                // console.log("qty_required",qty_required)
                 let lst_rm = []
                 if (bom_item) {
                     bom_item.bom.forEach(bom => {
                         let item_weight = bom.qty * qty_required;
                         let stock_item = mrp_stock.find(s => s.item_id === bom.item_id && s.plant === bom.buyer_plant);
-                        // console.log(stock_item)
+                        // console.log(item_weight,bom,stock_item)
                         let available_qty = 0;
                         if (stock_item) {
                             available_qty = stock_item.total - stock_item.used;
@@ -120,15 +119,31 @@ export async function raw_mat_calculate(plant) {
                             request: item_req,
                             used: item_used,
                             available_qty: available_qty,
-                            item_min_batch: item_req > 0 ? available_qty * bom.qty : item_weight,
+                            item_min_batch: item_used/bom.qty,
                             item_weight: item_weight,
                             job_start: job.start,
                             buyer_plant: bom.buyer_plant,
+                            material_group : bom.type,
+                            bom_rate : bom.qty
                         });
                     })
                 } else {
+                    lst_rm.push({
+                            mat_code: job.code,
+                            bom_id: null,
+                            request: null,
+                            used: null,
+                            available_qty: null,
+                            item_min_batch: null,
+                            item_weight: null,
+                            job_start: null,
+                            buyer_plant: null,
+                            material_group:null,
+                            bom_rate:null
+                        });
                     console.log(`No BOM found for material code: ${job.code}`);
                 }
+                // console.table(lst_rm)
                 const nums = (lst_rm ?? [])
                     .map(r => Number(r?.item_min_batch))
                     .filter(n => Number.isFinite(n));          // กัน null/undefined/NaN
@@ -164,8 +179,12 @@ export async function raw_mat_calculate(plant) {
     //         suggest_pcs: rm.suggest_pcs,
     //         rm_job_start: rm.job_start ? moment(rm.job_start).format("YYYY-MM-DD HH:mm") : null, // เปลี่ยนชื่อคีย์กันชนกัน
     //         buyer_plant: rm.buyer_plant,
+    //         material_group: rm.material_group,
+    //         bom_rate:rm.bom_rate
     //     }));
     // });
+
+    // console.table(data_row)
 
     // // console.table(stock_used_log);
     // // 1) แปลงเป็น worksheet
