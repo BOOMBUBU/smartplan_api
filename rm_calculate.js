@@ -6,18 +6,14 @@ import * as XLSX from "xlsx";
 
 export async function raw_mat_calculate(plant) {
     let lst_active_plan = await active_plan(plant) ?? [];
-    // lst_active_plan = lst_active_plan.filter(f => f.code == 'ZCA65110164001')
-    // let path = `/Users/kessarabhornchuysud/Downloads/activePlan.json`
-    // let raw = fs.readFileSync(path)
-    // let lst_active_plan = JSON.parse(raw);
-    // console.log(lst_active_plan.length)
+    // lst_active_plan = lst_active_plan.filter(f =>
+    //     String(f.code ?? '').includes('ZCA65210143001')
+    // );
     let lst_master_mrp_bom = await master_mrp_bom(plant) ?? [];
     let lst_master_mrp_stock = await master_mrp_stock(plant) ?? [];
     lst_active_plan.forEach(e => {
         e.start = moment(e.start);
         e.end = moment(e.end);
-        // e.start = moment(e.start, "YYYY-MM-DD HH:mm");
-        // e.end = moment(e.end, "YYYY-MM-DD HH:mm");
         e['raw_materials'] = []
     });
     lst_master_mrp_bom = lst_master_mrp_bom.filter(
@@ -32,24 +28,15 @@ export async function raw_mat_calculate(plant) {
     let machines = [...new Set(ap.map(row => row.machine))];
     let ms_bom_mrp = [...new Set(lst_master_mrp_bom.map(row => row.Material))].map(m => {
         let lst_bom = lst_master_mrp_bom.filter(r => r.Material === m && parseFloat(r.Qty) > 0)
-        let exclude = [
-            ...new Set(
-                (lst_bom ?? [])
-                    .map(i => i?.ItemIDBefore ?? "")
-                    .map(s => String(s).trim())
-                    .filter(s => s !== "")
-            )
-        ];
-        let select = lst_bom.filter(f => !exclude.includes(f.ItemID))
-        // console.table(select)
-        let bom = select.map(i => {
+        let bom = lst_bom.map(i => {
             let obj = {
                 item_id: i.ItemID,
                 qty: convertTONtoKg(i.Qty, i.Unit),
                 unit: "KG",
                 type: i.MaterialSubGroup,
                 buyer_plant: i.BuyerPlant,
-
+                item_before: i.ItemIDBefore ? i.ItemIDBefore : null,
+                number: i.MaterialSubGroup == "COLOR" ? 1 : 2
             };
             return obj
         })
@@ -81,13 +68,21 @@ export async function raw_mat_calculate(plant) {
             data.forEach(job => {
                 let qty_required = parseFloat(job.pcs);
                 const bom_item = ms_bom_mrp.find(b => b.mat_code === job.code);
-                // console.log("qty_required",qty_required)
-                let lst_rm = []
                 if (bom_item) {
-                    bom_item.bom.forEach(bom => {
-                        let item_weight = bom.qty * qty_required;
+                    let bom_detail = bom_item.bom.sort((a, b) => a.number.valueOf() - b.number.valueOf());
+                    let bom_data = bom_detail.filter(m => m.type == 'COLOR')
+                    let lst_rm = []
+                    let qty_item = qty_required
+                    while (bom_data.length > 0) {
+                        let bom = bom_data.pop(0);
+                        if (bom.type == 'COLOR'){
+                            qty_item = qty_required
+                        }   
+                        
+                        let bom_pigment = bom_detail.filter(f => f.item_before == bom.item_id)
+                        // console.table(bom_pigment)
+                        let item_weight = bom.qty * qty_item;
                         let stock_item = mrp_stock.find(s => s.item_id === bom.item_id && s.plant === bom.buyer_plant);
-                        // console.log(item_weight,bom,stock_item)
                         let available_qty = 0;
                         if (stock_item) {
                             available_qty = stock_item.total - stock_item.used;
@@ -103,6 +98,7 @@ export async function raw_mat_calculate(plant) {
                             }
                             mrp_stock.push(stock_item)
                         }
+                        // console.table(stock_item)
                         // Determine how much can be allocated
                         let item_req = 0;
                         let item_used = 0;
@@ -116,73 +112,102 @@ export async function raw_mat_calculate(plant) {
                         lst_rm.push({
                             mat_code: job.code,
                             bom_id: bom.item_id,
-                            request: item_req,
+                            qty_required:qty_item,
+                            request: (bom.type == 'COLOR' && item_req > 0 && bom_pigment.length > 0) ? 0 : item_req,
                             used: item_used,
                             available_qty: available_qty,
-                            item_min_batch: item_used/bom.qty,
+                            item_min_batch: Math.floor(item_used / bom.qty) || 0, //ปัดลงให้เป็นจำนวนเต็ม
                             item_weight: item_weight,
                             job_start: job.start,
                             buyer_plant: bom.buyer_plant,
-                            material_group : bom.type,
-                            bom_rate : bom.qty
+                            material_group: bom.type,
+                            bom_rate: bom.qty,
+                            item_before:bom.item_before
+
                         });
-                    })
+                        // console.log(bom.item_id,qty_item,item_req,bom_pigment.length)
+                        if (bom.type == 'COLOR' && item_req > 0  && bom_pigment.length > 0) {
+                            qty_item = Math.ceil(item_req/bom.qty) // จำนวนที่เหลือจาก COLOR หน่วย ==> แผ่น
+                            bom_data.push(...bom_pigment)
+                        }
+                    }
+                    // console.table(lst_rm, ["mat_code", "bom_id", "qty_required","request","used","available_qty","item_min_batch","item_weight","material_group","bom_rate","item_before"]);
+                    // สร้าง index หา parent ตาม bom_id + color ให้เร็วขึ้น
+                    
+                    let arr_min = [];
+
+                    const colorRows = lst_rm.filter(r => r.material_group === "COLOR");
+
+                    colorRows.forEach(e => {
+                        // ลูกที่ item_before = bom_id ของสีนี้
+                        const min_lst = lst_rm
+                            .filter(r => r.item_before === e.bom_id)
+                            .map(r => Number(r.item_min_batch))
+                            .filter(n => Number.isFinite(n));
+
+                        const child_min = min_lst.length ? Math.min(...min_lst) : 0;
+
+                        // item_min_batch ของสี + min ของลูก
+                        arr_min.push(Number(e.item_min_batch) + child_min);
+                    });
+
+                    let suggest_pcs = arr_min.length ? Math.min(...arr_min) : 0;
+                    suggest_pcs = Math.abs(suggest_pcs) < 1e-10 ? 0 : Number(suggest_pcs.toFixed(10));
+
+                    // set ให้ทุก row ตามเดิม
+                    lst_rm.forEach(r => r.suggest_pcs = suggest_pcs);
+                    let item = lst_active_plan.find(f => f._id == job._id) 
+                    if (item) { item.raw_materials = lst_rm; }
+                    stock_used_log = stock_used_log.concat(lst_rm);
                 } else {
+                    console.log(`No BOM found for material code: ${job.code}`);
                     lst_rm.push({
                             mat_code: job.code,
                             bom_id: null,
+                            qty_required:qty_required,
                             request: null,
                             used: null,
                             available_qty: null,
-                            item_min_batch: null,
+                            item_min_batch: null, //ปัดลงให้เป็นจำนวนเต็ม
                             item_weight: null,
-                            job_start: null,
+                            job_start: job.start,
                             buyer_plant: null,
                             material_group:null,
-                            bom_rate:null
+                            bom_rate: null,
+                            item_before:null
+
                         });
-                    console.log(`No BOM found for material code: ${job.code}`);
+                    let item = lst_active_plan.find(f => f._id == job._id) 
+                    if (item) { item.raw_materials = lst_rm; }
+                    stock_used_log = stock_used_log.concat(lst_rm);
                 }
-                // console.table(lst_rm)
-                const nums = (lst_rm ?? [])
-                    .map(r => Number(r?.item_min_batch))
-                    .filter(n => Number.isFinite(n));          // กัน null/undefined/NaN
-
-                let suggest_pcs = nums.length ? Math.min(...nums) : 0; // ถ้าว่างให้เป็น 0
-                suggest_pcs = Math.abs(suggest_pcs) < 1e-10 ? 0 : Number(suggest_pcs.toFixed(10));
-                lst_rm.forEach(r => r.suggest_pcs = suggest_pcs);
-                let item = lst_active_plan.find(f => f._id == job._id)
-                if (item) {
-                    item.raw_materials = lst_rm;
-                }
-
-                stock_used_log = stock_used_log.concat(lst_rm);
             })
         }
     }
 
-    // const data_row = lst_active_plan.flatMap(r => {
-    //     const raws = Array.isArray(r.raw_materials) ? r.raw_materials : [];
-    //     return raws.map(rm => ({
-    //         job_id: r._id,
-    //         plant: r.plant,
-    //         machine: r.machine,
-    //         mat_code: r.code,
-    //         priority: r.commit,
-    //         job_start: moment(r.start).format("YYYY-MM-DD HH:mm"), // เวลาเริ่มของงาน
-    //         job_end: moment(r.end).format("YYYY-MM-DD HH:mm"),
-    //         pcs: r.pcs,
-    //         item_id: rm.bom_id,
-    //         available_qty: rm.available_qty,
-    //         used: rm.used,
-    //         request: rm.request,
-    //         suggest_pcs: rm.suggest_pcs,
-    //         rm_job_start: rm.job_start ? moment(rm.job_start).format("YYYY-MM-DD HH:mm") : null, // เปลี่ยนชื่อคีย์กันชนกัน
-    //         buyer_plant: rm.buyer_plant,
-    //         material_group: rm.material_group,
-    //         bom_rate:rm.bom_rate
-    //     }));
-    // });
+    const data_row = lst_active_plan.flatMap(r => {
+        const raws = Array.isArray(r.raw_materials) ? r.raw_materials : [];
+        return raws.map(rm => ({
+            job_id: r._id,
+            plant: r.plant,
+            machine: r.machine,
+            mat_code: r.code,
+            priority: r.commit,
+            job_start: moment(r.start).format("YYYY-MM-DD HH:mm"), // เวลาเริ่มของงาน
+            job_end: moment(r.end).format("YYYY-MM-DD HH:mm"),
+            pcs: r.pcs,
+            item_id: rm.bom_id,
+            available_qty: rm.available_qty,
+            used: rm.used,
+            request: rm.request,
+            suggest_pcs: rm.suggest_pcs,
+            rm_job_start: rm.job_start ? moment(rm.job_start).format("YYYY-MM-DD HH:mm") : null, // เปลี่ยนชื่อคีย์กันชนกัน
+            buyer_plant: rm.buyer_plant,
+            material_group: rm.material_group,
+            bom_rate:rm.bom_rate,
+            item_before:rm.item_before
+        }));
+    });
 
     // console.table(data_row)
 
